@@ -12,15 +12,8 @@ import wifi
 from adafruit_datetime import datetime, timedelta
 from time import sleep, monotonic
 
-# Constants
-# SLEEP_DURATION = 5
-# LIGHT_SLEEP = 1
-# DEEP_SLEEP = 2
-# SLEEP_MODE = LIGHT_SLEEP
 TZ_NAME = "America/Los_Angeles"
 SUNRISE_URL = f"https://api.sunrisesunset.io/json?lat=37.414223&lng=-122.132170&time_format=24&timezone={TZ_NAME}"
-PHOTOCELL_MAX = 65535 # absolute
-PHOTOCELL_THRESHOLD = 20 # percent
 
 BANNER = """
 ----------------------------
@@ -80,12 +73,6 @@ def get_local_time_and_sun_data():
     now_dt = rtc_to_datetime(ntp_now)
     print("Local time: ", now_dt)
     
-    print("-"*20)
-    print(now_dt)
-    print(sunrise_today)
-    print(sunset_today)
-    print("-"*20)
-
     return now_dt, sunrise_today, sunset_today
 
 def get_sunrise_tomorrow():
@@ -95,7 +82,6 @@ def get_sunrise_tomorrow():
     tomorrow = requests.get(SUNRISE_URL + f"&date={tomorrow_date.isoformat()}").json()
     sunrise_tomorrow = datetime.fromisoformat(f"{tomorrow['results']['date']}T{tomorrow['results']['sunrise']}")
     return sunrise_tomorrow
-
 
 def rtc_to_datetime(rtc_time) -> datetime:
     dt = datetime(rtc_time.tm_year, rtc_time.tm_mon, rtc_time.tm_mday, rtc_time.tm_hour, rtc_time.tm_min, rtc_time.tm_sec)
@@ -112,13 +98,11 @@ def startup():
         socket_pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
         ssl_context = adafruit_connection_manager.get_radio_ssl_context(wifi.radio)
         requests = adafruit_requests.Session(socket_pool, ssl_context)
-        # get_time()
     else:
         print("Not connected to WiFi!")
 
-    sleep(1)
-
     # Blink LEDs 3X
+    print("Blinking LEDs...")
     for x in range(3):
         onboard_led_on()
         uv_on()
@@ -138,6 +122,7 @@ while True:
     # main loop
     print("Top of main loop")
     onboard_led_off()
+    uv_off()
     sleep(1)
     
     # Blink onboard LED once
@@ -148,17 +133,13 @@ while True:
 
     now, today_sunrise, today_sunset = get_local_time_and_sun_data()
 
-    print("*"*20)
-
     print(f"Current local time: {now}")
-    print(now)
     print(f"UTC offset: {tz_offset} hours")
     print(f"Sunrise: {today_sunrise}")
-    print(today_sunrise)
     print(f"Sunset: {today_sunset}")
-    print(today_sunset)
 
     light_now = None
+    sleep_overnight = False
 
     if now < today_sunrise: 
         print("it's before today's sunrise")
@@ -172,11 +153,10 @@ while True:
         else: 
             print("it's after today's sunset")
             light_now = False
+            sleep_overnight = True
     
     alt_light_now = (now > today_sunrise) and (now < today_sunset)
     print(f"light_now: {light_now}, alt_light_now: {alt_light_now}")
-
-    print("*"*20)
 
     if light_now:
         # it's light out; UV off, deep sleep until sunset
@@ -189,10 +169,16 @@ while True:
         alarm.exit_and_deep_sleep_until_alarms(time_alarm)
         print("This won't print because the program will restart.")
     else:
-        # it's light out; UV on, light sleep until sunrise
+        # it's dark out; UV on, light sleep until sunrise
         uv_on()
-        sunrise_tomorrow = get_sunrise_tomorrow()
-        until_sunrise_delta = (sunrise_tomorrow - now)
+        until_sunrise_delta = None
+        if sleep_overnight:
+            # it's before midnight; use tomorrow's sunrise time
+            sunrise_tomorrow = get_sunrise_tomorrow()
+            until_sunrise_delta = (sunrise_tomorrow - now)
+        else:
+            # it's past midnight; don't check tomorrow's sunrise
+            until_sunrise_delta = (today_sunrise - now)
         print("Delta until sunrise: ", until_sunrise_delta)
         seconds_to_wait = until_sunrise_delta.total_seconds()
         print(f"Will sleep lightly for {seconds_to_wait} seconds until sunrise...")
