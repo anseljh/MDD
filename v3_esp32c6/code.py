@@ -1,7 +1,6 @@
 import adafruit_connection_manager
 import adafruit_ntp
 import adafruit_requests
-import analogio
 import alarm
 import board
 import digitalio
