@@ -212,3 +212,5 @@ settings.toml
 /.vscode
 .DS_Store
 *.bin
+
+/previous

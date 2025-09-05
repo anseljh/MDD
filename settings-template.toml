@@ -1,0 +1,9 @@
+# WiFi credentials
+CIRCUITPY_WIFI_SSID = ""
+CIRCUITPY_WIFI_PASSWORD = ""
+# CircuitPython web API password
+CIRCUITPY_WEB_API_PASSWORD = ""
+# Location setup
+TZ_NAME = ""
+LATITUDE = 
+LONGITUDE = 

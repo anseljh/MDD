@@ -1,6 +1,4 @@
-import adafruit_connection_manager
-import adafruit_ntp
-import adafruit_requests
+# Standard libraries
 import alarm
 import board
 import digitalio
@@ -8,12 +6,18 @@ import microcontroller
 import rtc
 import wifi
 
+# Additional CircuitPython libraries
+import adafruit_connection_manager
+import adafruit_ntp
+import adafruit_requests
+
+# More standard libraries; partially imported
 from adafruit_datetime import datetime, timedelta
 from time import sleep, monotonic
 from os import getenv
 
 # Get settings from environment variables
-# These are set in settings.toml!
+# Set them in settings.toml!
 
 TZ_NAME = getenv("TZ_NAME")
 LATITUDE = getenv("LATITUDE")
