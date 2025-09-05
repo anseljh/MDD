@@ -10,20 +10,28 @@ import wifi
 
 from adafruit_datetime import datetime, timedelta
 from time import sleep, monotonic
+from os import getenv
 
-TZ_NAME = "America/Los_Angeles"
-SUNRISE_URL = f"https://api.sunrisesunset.io/json?lat=37.414223&lng=-122.132170&time_format=24&timezone={TZ_NAME}"
+# Get settings from environment variables
+# These are set in settings.toml!
+
+TZ_NAME = getenv("TZ_NAME")
+LATITUDE = getenv("LATITUDE")
+LONGITUDE = getenv("LONGITUDE")
+
+SUNRISE_URL = f"https://api.sunrisesunset.io/json?lat={LATITUDE}&lng={LONGITUDE}&time_format=24&timezone={TZ_NAME}"
 
 BANNER = """
 ----------------------------
 Mouse Deterrent Device (MDD)
 by Ansel Halliburton
-for ESP32-C6
+for Xiao ESP32-C6
 Powered by SunriseSunset.io
 ----------------------------
 """
 
 # Init I/O
+
 onboard_led = digitalio.DigitalInOut(microcontroller.pin.GPIO15)
 onboard_led.direction = digitalio.Direction.OUTPUT
 onboard_led.value = True # off
@@ -34,6 +42,8 @@ requests = None
 socket_pool = None
 tz_offset = None # hours offset from UTC
 
+# LED convenience functions
+
 def onboard_led_on():
         onboard_led.value = False
 
@@ -42,9 +52,13 @@ def onboard_led_off():
 
 def uv_on():
     uv_led.value = True
+    print("UV on!")
 
 def uv_off():
     uv_led.value = False
+    print("UV off")
+
+# Time/date and sunrise/sunset functions
 
 def get_local_time_and_sun_data():
     global requests, socket_pool, tz_offset
@@ -86,7 +100,12 @@ def rtc_to_datetime(rtc_time) -> datetime:
     dt = datetime(rtc_time.tm_year, rtc_time.tm_mon, rtc_time.tm_mday, rtc_time.tm_hour, rtc_time.tm_min, rtc_time.tm_sec)
     return dt
 
+#################################################
+
 def startup():
+    """
+    Called when the board starts, or wakes from deep sleep.
+    """
     global requests, socket_pool
     print(BANNER)
     print("Starting up...")
