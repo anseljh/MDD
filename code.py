@@ -38,31 +38,37 @@ Powered by SunriseSunset.io
 
 onboard_led = digitalio.DigitalInOut(microcontroller.pin.GPIO15)
 onboard_led.direction = digitalio.Direction.OUTPUT
-onboard_led.value = True # off
+onboard_led.value = True  # off
 uv_led = digitalio.DigitalInOut(board.D1)
 uv_led.direction = digitalio.Direction.OUTPUT
-uv_led.value = False # off
+uv_led.value = False  # off
 requests = None
 socket_pool = None
-tz_offset = None # hours offset from UTC
+tz_offset = None  # hours offset from UTC
 
 # LED convenience functions
 
+
 def onboard_led_on():
-        onboard_led.value = False
+    onboard_led.value = False
+
 
 def onboard_led_off():
-        onboard_led.value = True
+    onboard_led.value = True
+
 
 def uv_on():
     uv_led.value = True
     print("UV on!")
 
+
 def uv_off():
     uv_led.value = False
     print("UV off")
 
+
 # Time/date and sunrise/sunset functions
+
 
 def get_local_time_and_sun_data():
     global requests, socket_pool, tz_offset
@@ -73,38 +79,55 @@ def get_local_time_and_sun_data():
     approx_date_str = approx_dt.date().isoformat()
     print("Approx date: ", approx_date_str)
 
-    # Get sunrise data 
+    # Get sunrise data
     url = SUNRISE_URL + f"&date={approx_date_str}"
     today = requests.get(url).json()
-    sunrise_today = datetime.fromisoformat(f"{today['results']['date']}T{today['results']['sunrise']}")
-    sunset_today = datetime.fromisoformat(f"{today['results']['date']}T{today['results']['sunset']}")
+    sunrise_today = datetime.fromisoformat(
+        f"{today['results']['date']}T{today['results']['sunrise']}"
+    )
+    sunset_today = datetime.fromisoformat(
+        f"{today['results']['date']}T{today['results']['sunset']}"
+    )
 
     # determine tz_offset from sunrise data
-    offset_minutes = today['results']['utc_offset']
+    offset_minutes = today["results"]["utc_offset"]
     tz_offset = int(offset_minutes / 60)
-    
+
     # Get correct local time from NTP, using TZ offset
     ntp = adafruit_ntp.NTP(socket_pool, tz_offset=tz_offset, cache_seconds=3600)
     ntp_now = ntp.datetime
     rtc.RTC().datetime = ntp_now
     now_dt = rtc_to_datetime(ntp_now)
     print("Local time: ", now_dt)
-    
+
     return now_dt, sunrise_today, sunset_today
+
 
 def get_sunrise_tomorrow():
     one_day = timedelta(days=1)
     now_dt = rtc_to_datetime(rtc.RTC().datetime)
     tomorrow_date = (now_dt + one_day).date()
     tomorrow = requests.get(SUNRISE_URL + f"&date={tomorrow_date.isoformat()}").json()
-    sunrise_tomorrow = datetime.fromisoformat(f"{tomorrow['results']['date']}T{tomorrow['results']['sunrise']}")
+    sunrise_tomorrow = datetime.fromisoformat(
+        f"{tomorrow['results']['date']}T{tomorrow['results']['sunrise']}"
+    )
     return sunrise_tomorrow
 
+
 def rtc_to_datetime(rtc_time) -> datetime:
-    dt = datetime(rtc_time.tm_year, rtc_time.tm_mon, rtc_time.tm_mday, rtc_time.tm_hour, rtc_time.tm_min, rtc_time.tm_sec)
+    dt = datetime(
+        rtc_time.tm_year,
+        rtc_time.tm_mon,
+        rtc_time.tm_mday,
+        rtc_time.tm_hour,
+        rtc_time.tm_min,
+        rtc_time.tm_sec,
+    )
     return dt
 
+
 #################################################
+
 
 def startup():
     """
@@ -146,7 +169,7 @@ while True:
     onboard_led_off()
     uv_off()
     sleep(1)
-    
+
     # Blink onboard LED once
     onboard_led_on()
     sleep(0.25)
@@ -163,27 +186,27 @@ while True:
     light_now = None
     sleep_overnight = False
 
-    if now < today_sunrise: 
+    if now < today_sunrise:
         print("it's before today's sunrise")
         light_now = False
-    else: 
+    else:
         print("it's after today's sunrise")
 
-        if now < today_sunset: 
+        if now < today_sunset:
             print("it's before today's sunset")
             light_now = True
-        else: 
+        else:
             print("it's after today's sunset")
             light_now = False
             sleep_overnight = True
-    
+
     alt_light_now = (now > today_sunrise) and (now < today_sunset)
     print(f"light_now: {light_now}, alt_light_now: {alt_light_now}")
 
     if light_now:
         # it's light out; UV off, deep sleep until sunset
         uv_off()
-        until_sunset_delta = (today_sunset - now)
+        until_sunset_delta = today_sunset - now
         print("Delta until sunset: ", until_sunset_delta)
         seconds_to_wait = until_sunset_delta.total_seconds()
         print(f"Will sleep deeply for {seconds_to_wait} seconds until sunset...")
@@ -197,10 +220,10 @@ while True:
         if sleep_overnight:
             # it's before midnight; use tomorrow's sunrise time
             sunrise_tomorrow = get_sunrise_tomorrow()
-            until_sunrise_delta = (sunrise_tomorrow - now)
+            until_sunrise_delta = sunrise_tomorrow - now
         else:
             # it's past midnight; don't check tomorrow's sunrise
-            until_sunrise_delta = (today_sunrise - now)
+            until_sunrise_delta = today_sunrise - now
         print("Delta until sunrise: ", until_sunrise_delta)
         seconds_to_wait = until_sunrise_delta.total_seconds()
         print(f"Will sleep lightly for {seconds_to_wait} seconds until sunrise...")
