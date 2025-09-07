@@ -214,3 +214,6 @@ settings.toml
 *.bin
 
 /previous
+PCB/fp-info-cache
+*.lck
+/PCB/MDD_ESP32-backups
