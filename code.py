@@ -10,6 +10,7 @@ import wifi
 import adafruit_connection_manager
 import adafruit_ntp
 import adafruit_requests
+from adafruit_io.adafruit_io import IO_HTTP, AdafruitIO_RequestError
 
 # More standard libraries; partially imported
 from adafruit_datetime import datetime, timedelta
@@ -24,6 +25,11 @@ LATITUDE = getenv("LATITUDE")
 LONGITUDE = getenv("LONGITUDE")
 
 SUNRISE_URL = f"https://api.sunrisesunset.io/json?lat={LATITUDE}&lng={LONGITUDE}&time_format=24&timezone={TZ_NAME}"
+
+AIO_USERNAME = getenv("ADAFRUIT_AIO_USERNAME")
+AIO_KEY = getenv("ADAFRUIT_AIO_KEY")
+FEED_NAME = "mdd-activity"
+FEED_API_ENDPOINT = f"https://io.adafruit.com/api/v2/{AIO_USERNAME}/feeds/{FEED_NAME}"
 
 BANNER = """
 ----------------------------
@@ -44,6 +50,7 @@ uv_led.direction = digitalio.Direction.OUTPUT
 uv_led.value = False  # off
 requests = None
 socket_pool = None
+io = None
 tz_offset = None  # hours offset from UTC
 
 # LED convenience functions
@@ -125,6 +132,18 @@ def rtc_to_datetime(rtc_time) -> datetime:
     )
     return dt
 
+def log_to_aio(message: str):
+    global io, FEED_NAME
+    if wifi.radio.connected:
+        try:
+            io.send_data(FEED_NAME, message)
+        except AdafruitIO_RequestError as e:
+            print("Failed to log to Adafruit IO: ", e)
+            return False
+        return True
+    else:
+        print("Can't log to AIO because not on WiFi")
+        return False
 
 #################################################
 
@@ -133,16 +152,20 @@ def startup():
     """
     Called when the board starts, or wakes from deep sleep.
     """
-    global requests, socket_pool
+    global requests, socket_pool, io
     print(BANNER)
     print("Starting up...")
 
     # Print WiFi info
     if wifi.radio.connected:
-        print(f"Connected to WiFi: {wifi.radio.ap_info.ssid}")
+        connected_msg = f"Connected to WiFi: {wifi.radio.ap_info.ssid}"
+        print(connected_msg)
         socket_pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
         ssl_context = adafruit_connection_manager.get_radio_ssl_context(wifi.radio)
         requests = adafruit_requests.Session(socket_pool, ssl_context)
+        io = IO_HTTP(AIO_USERNAME, AIO_KEY, requests)
+        # io.send_data(FEED_NAME, connected_msg)
+        log_to_aio(connected_msg)
     else:
         print("Not connected to WiFi!")
 
@@ -166,6 +189,7 @@ print("Entering main loop...")
 while True:
     # main loop
     print("Top of main loop")
+    log_to_aio("Top of main loop")
     onboard_led_off()
     uv_off()
     sleep(1)
@@ -202,6 +226,11 @@ while True:
 
     alt_light_now = (now > today_sunrise) and (now < today_sunset)
     print(f"light_now: {light_now}, alt_light_now: {alt_light_now}")
+    
+    if light_now:
+        log_to_aio("Sun is up; UV off")
+    else:
+        log_to_aio("Sun is down; UV on")
 
     if light_now:
         # it's light out; UV off, deep sleep until sunset
@@ -210,6 +239,7 @@ while True:
         print("Delta until sunset: ", until_sunset_delta)
         seconds_to_wait = until_sunset_delta.total_seconds()
         print(f"Will sleep deeply for {seconds_to_wait} seconds until sunset...")
+        log_to_aio(f"Sleeping deeply for {seconds_to_wait} seconds until sunset")
         time_alarm = alarm.time.TimeAlarm(monotonic_time=monotonic() + seconds_to_wait)
         alarm.exit_and_deep_sleep_until_alarms(time_alarm)
         print("This won't print because the program will restart.")
@@ -227,6 +257,7 @@ while True:
         print("Delta until sunrise: ", until_sunrise_delta)
         seconds_to_wait = until_sunrise_delta.total_seconds()
         print(f"Will sleep lightly for {seconds_to_wait} seconds until sunrise...")
+        log_to_aio(f"Sleeping lightly for {seconds_to_wait} seconds until sunrise")
         time_alarm = alarm.time.TimeAlarm(monotonic_time=monotonic() + seconds_to_wait)
         alarm.light_sleep_until_alarms(time_alarm)
 
