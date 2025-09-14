@@ -39,7 +39,7 @@ Powered by SunriseSunset.io
 onboard_led = digitalio.DigitalInOut(microcontroller.pin.GPIO15)
 onboard_led.direction = digitalio.Direction.OUTPUT
 onboard_led.value = True  # off
-uv_led = digitalio.DigitalInOut(board.D1)
+uv_led = digitalio.DigitalInOut(board.D0)
 uv_led.direction = digitalio.Direction.OUTPUT
 uv_led.value = False  # off
 requests = None
