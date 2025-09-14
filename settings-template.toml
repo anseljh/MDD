@@ -4,6 +4,8 @@ CIRCUITPY_WIFI_PASSWORD = ""
 # CircuitPython web API password
 CIRCUITPY_WEB_API_PASSWORD = ""
 # Location setup
+# Pass all values as strings because of TOML parser limitation
+# https://docs.circuitpython.org/en/latest/docs/environment.html#details-of-the-toml-language-subset
 TZ_NAME = ""
-LATITUDE = 
-LONGITUDE = 
+LATITUDE = ""
+LONGITUDE = ""
